@@ -1,6 +1,3 @@
--- 由于蜂窝网络的不稳定性可能造成数据不准确，滞后性
--- 应该避免传送非必要参数
-
 PROJECT = 'Air780EP_SMS'                    -- 项目名，不能有空格
 VERSION = '0.3.12'                          -- 版本号，不能有空格
 
@@ -27,10 +24,8 @@ mobile.ipv6(false)                          -- IPv6开关，true/false
 mobile.syncTime(false)                      -- 不同步基站时间
 mobile.setAuto(10000, 30000, 5)             -- SIM脱离后自动恢复/ms，搜索周围小区信息周期/ms，超时/s
 
-log.info(PROJECT, VERSION)
-
 local rb_sw     = 24                         -- 设置定时重启时间(单位:小时)，0不重启
-local led_pin   = 27                         -- 设置led gpio为27
+local led_pin   = 27                         -- 设置led gpio 780填27 724填1
 local led_sw    = gpio.setup(led_pin, 1)     -- led 电平 1/0 高/低
 local net_ok    = false                      -- 联网状态
 local sms_reply = false                      -- 设置有电话呼入时回复短信，true/false
