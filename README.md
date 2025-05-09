@@ -8,7 +8,8 @@
  - air724ug
 
 ### 说明
- - ` 780ep `  ` 724ug ` 语音功能不可用
+ - ` air780ep `  ` air724ug ` 语音功能不可用
+ - air724ug底层 [下载地址](https://www.air32.cn/air724ug/)
 
 ### 使用
 - 将bark提供的口令填到 ` BARK_KEY = '' ` 。如：` BARK_KEY = 'abc123' `
