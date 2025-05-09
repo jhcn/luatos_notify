@@ -1,7 +1,14 @@
 ### 介绍
-- 适用于合宙AIR780e系列的短信转发脚本库
-- 将短信内容通过http post方式推送给bark app的lua脚本
-- 实机调试型号： air780ep / 780epv
+- 基于luatos开发的短信转发脚本
+- 将短信内容通过http post方式推送给bark app
+
+### 实机调试
+ - air780ep
+ - air780epv
+ - air724ug
+
+### 说明
+ - ` 780ep `  ` 724ug ` 语音功能不可用
 
 ### 使用
 - 将bark提供的口令填到 ` BARK_KEY = '' ` 。如：` BARK_KEY = 'abc123' `
