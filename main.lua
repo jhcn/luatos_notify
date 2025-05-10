@@ -4,7 +4,7 @@ VERSION = '0.3.12'                          -- 版本号，不能有空格
 BARK_URL = 'https://api.day.app/push'       -- bark api
 BARK_KEY = ''                               -- bark口令
 
-log.setLevel(2)                             -- 输出日志级别，SILENT,DEBUG,INFO,WARN,ERROR,FATAL 0,1,2,3,4,5
+log.setLevel(1)                             -- 输出日志级别，SILENT,DEBUG,INFO,WARN,ERROR,FATAL 0,1,2,3,4,5
 log.style(1)                                -- 日志风格
 
 _G.sys     = require 'sys'
@@ -137,8 +137,9 @@ sys.subscribe('net_ok',
         if net_boom < 1 then
             socket.setDNS(nil, 1, '180.184.2.2')
             socket.setDNS(nil, 2, '223.5.5.5')
+            local bsp   = hmeta.model()
             local froms = {
-                ['title'] = string.format('%s设备开机通知', rtos.bsp()),
+                ['title'] = string.format('%s设备开机通知', bsp),
                 ['body']  = table.concat(
                     {
                         string.format('手机号 %s', simNumber()),
@@ -219,6 +220,8 @@ sys.subscribe('CC_IND', function(status)
     local lastNum = cc.lastNum()
     if status == 'DISCONNECTED' then
         cc_in = false
+    elseif status == 'READY' then
+        cc.init(0)
     elseif status == 'INCOMINGCALL' then
         if not cc_in then
             cc_in = true
