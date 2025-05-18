@@ -226,7 +226,7 @@ sys.subscribe('CC_IND', function(status)
         if not cc_in then
             cc_in = true
             local froms = {
-                ['body'] = string.format('%s 致电 %s', lastNum, simNumber)
+                ['body'] = string.format('%s 致电 %s', lastNum, simNumber())
             }
             sys.publish('notify', 'call', froms, 1)
             if sms_reply then
