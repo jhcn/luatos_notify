@@ -1,26 +1,29 @@
 ### 介绍
 - 基于luatos开发的短信转发脚本
-- 将短信内容通过http post方式推送给bark app
+- 将短信内容转发到webhook接口
+
+### 支持的通道
+- bark
+- wecom
+- feishu
+- TelegramBot
 
 ### 实机调试
- - air780ep
- - air780epv
- - air724ug
-
-### 说明
- - ` air780ep `  ` air724ug ` 语音功能不可用
- - air724ug底层 [下载地址](https://www.air32.cn/air724ug/)
+- air780ep
+- air780epv
 
 ### 使用
-- 将bark提供的口令填到 ` BARK_KEY = '' ` 。如：` BARK_KEY = 'abc123' `
+- 修改config各项参数
 
 ### 功能
 - ✔ 转发收到短信内容
+- ✔ 来电(被呼叫)通知
 - ✔ 开机发送通知
 - ✔ 受控发出短信
-- ✔ 有人致电发送通知
-- ✔ 私人号码致电自动回复短信，` local sms_reply = true ` 时有效
-- ✔ 定时重启, 默认24小时。其他值可在 ` local rb_sw = 24 ` 中修改24为指定值
+- ✔ 私人号码致电自动回复短信
+- ✔ 定时重启
+
+### 转发至邮箱功能尚未实现
 
 ### 技巧
 给10001发送短信，内容108
