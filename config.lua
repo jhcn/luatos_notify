@@ -28,14 +28,14 @@ return {
                 },
                 TelegramBot = {
                     enable = 1,
-                    url    = 'https://telegram.abcdefghijklmn.eu.org',
+                    url    = 'https://abcdefghijklmn.eu.org/telegram',
                     token  = '8421296570:AAH9ZfkTvN2cXelej3Ms460n1ZMQZAxmASg',
                     id     = 559928607
                 },
                 huaiot = {
                     enable = 1,
-                    url    = 'http://193.32.149.227/obj',
-                    host   = 'api.iot.999909.xyz',
+                    url    = 'http://192.168.1.1/obj',
+                    host   = 'api.iot.test.xyz',
                     auth   = 'xxx'
                 }
             }
@@ -100,5 +100,6 @@ return {
     sim     此功能可设置iccid对应手机号，对于未写入手机号的sim卡非常有效。
     ctrl    可控制模块的号码，留空代表任意号码，不可被控制可填不存在的号码如000
     reboot  定时重启模块，单位小时，0则不重启
+
 
 --]]
