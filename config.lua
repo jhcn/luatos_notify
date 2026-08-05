@@ -82,7 +82,7 @@ return {
         },
         led = {
             network = {
-                gpio = 27
+                gpio = 30
             },
             event = {
                 gpio  = 27,
