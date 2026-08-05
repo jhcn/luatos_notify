@@ -13,14 +13,14 @@ sys.subscribe('http_notify', function()
     led.event()
 end)
 
--- 联网，LED灭
+-- 联网，LED亮
 sys.subscribe('IP_READY', function()
-    led.network(0)
+    led.network(1)
 end)
 
--- 断网，LED亮
+-- 断网，LED灭
 sys.subscribe('IP_LOSE', function()
-    led.network(1)
+    led.network(0)
 end)
 
 -- 发送短信
