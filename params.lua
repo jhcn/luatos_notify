@@ -29,6 +29,7 @@ end
 
 -- dingtalk
 function params.dingtalk(type, from, num, content)
+    content = string.format('%s%s', content, chl.dingtalk.key)
     local text = {
         call = string.format('%s致电%s', from, num),
         sms  = string.format('%s发来短信： %s 收信方：%s', from, content, num),
