@@ -27,6 +27,19 @@ function params.feishu(type, from, num, content)
     }, json.encode({msg_type = 'text', content = {text = text[type]}})
 end
 
+-- dingtalk
+function params.dingtalk(type, from, num, content)
+    local text = {
+        call = string.format('%s致电%s', from, num),
+        sms  = string.format('%s发来短信： %s 收信方：%s', from, content, num),
+        msg  = content
+    }
+    if not text[type] then return end
+    return 'POST', chl.dingtalk.url, {
+        ['Content-Type'] = 'application/json; charset=utf-8'
+    }, json.encode({msgtype = 'text', text = {content = text[type]}})
+end
+
 -- bark
 function params.bark(type, from, num, content)
     local params = {
