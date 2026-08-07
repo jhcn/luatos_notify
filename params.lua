@@ -29,16 +29,17 @@ end
 
 -- dingtalk
 function params.dingtalk(type, from, num, content)
-    content = string.format('%s%s', content, chl.dingtalk.key)
     local text = {
         call = string.format('%s致电%s', from, num),
         sms  = string.format('%s发来短信： %s 收信方：%s', from, content, num),
         msg  = content
     }
-    if not text[type] then return end
+    local post_data = text[type]
+    if not post_data then return end
+    post_data = string.format('%s，%s', post_data, chl.dingtalk.key)
     return 'POST', chl.dingtalk.url, {
         ['Content-Type'] = 'application/json; charset=utf-8'
-    }, json.encode({msgtype = 'text', text = {content = text[type]}})
+    }, json.encode({msgtype = 'text', text = {content = post_data}})
 end
 
 -- bark
