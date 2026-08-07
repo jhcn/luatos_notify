@@ -34,9 +34,8 @@ function params.dingtalk(type, from, num, content)
         sms  = string.format('%s发来短信： %s 收信方：%s', from, content, num),
         msg  = content
     }
-    local post_data = text[type]
-    if not post_data then return end
-    post_data = string.format('%s，%s', post_data, chl.dingtalk.key)
+    if not text[type] then return end
+    local post_data = string.format('%s，%s', text[type], chl.dingtalk.key)
     return 'POST', chl.dingtalk.url, {
         ['Content-Type'] = 'application/json; charset=utf-8'
     }, json.encode({msgtype = 'text', text = {content = post_data}})
