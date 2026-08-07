@@ -24,7 +24,8 @@ return {
                 },
                 dingtalk = {
                     enable = 0,
-                    url    = 'https://oapi.dingtalk.com/robot/send?access_token=XXXXXX'
+                    url    = 'https://oapi.dingtalk.com/robot/send?access_token=XXXXXX',
+                    key    = '关键词'
                 },
                 bark = {
                     enable = 0,
