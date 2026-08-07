@@ -22,6 +22,10 @@ return {
                     enable = 0,
                     url    = 'https://open.feishu.cn/open-apis/bot/v2/hook/****',
                 },
+                dingtalk = {
+                    enable = 0,
+                    url    = 'https://oapi.dingtalk.com/robot/send?access_token=XXXXXX'
+                },
                 bark = {
                     enable = 0,
                     url    = 'https://api.day.app/xxx'
