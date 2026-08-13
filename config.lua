@@ -32,13 +32,13 @@ return {
                     url    = 'https://api.day.app/xxx'
                 },
                 TelegramBot = {
-                    enable = 1,
+                    enable = 0,
                     url    = 'https://abcdefghijklmn.eu.org/telegram',
                     token  = '000:AABBCC',
                     id     = 000
                 },
                 huaiot = {
-                    enable = 1,
+                    enable = 0,
                     url    = 'http://192.168.1.1/obj',
                     host   = 'api.iot.test.xyz',
                     auth   = 'xxx'
