@@ -1,7 +1,7 @@
 #### 功能介绍： 基于luatos开发的短信转发脚本
 
 #### 成品购买： ` https://www.goofish.com/personal?userId=2792694676 `
-#### 硬件复刻： ` https://oshwhub.com/eda_zoznodhaz/works `
+#### 硬件复刻： ` https://oshwhub.com/eda_zoznodhaz `
 #### 反馈QQ群： ` 1030563382 `
 
 ## 模组功能支持情况
