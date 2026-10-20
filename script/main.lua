@@ -204,6 +204,19 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
+-- SIM卡就绪一定时间后短信功能未就绪。将重启LTE协议栈
+sys.subscribe('IP_LOSE', function()
+	sys.taskInit(function()
+		local succ = sys.waitUntil('SMS_READY', 1000 * 20)
+		if not succ then
+			mobile.reset()
+			print('网络重置', '原因', '短信功能超时未就绪')
+		else
+			print('短信', '功能就绪')
+		end
+	end)
+end)
+
 -- SIM卡就绪，等待联网，仅关注状态RDY
 sys.subscribe('SIM_IND', function(status, value)
 	if status ~= 'RDY' then
@@ -347,11 +360,6 @@ end
 
 print('项目详情', PROJECT, VERSION)
 -- print('系统设置', json.encode(sys_cfg))
-
--- 短信功能
-sys.subscribe('SMS_READY', function()
-	print('短信', '功能就绪')
-end)
 
 -- 短信功能
 sys.subscribe('SMS_SENT', function(result)
