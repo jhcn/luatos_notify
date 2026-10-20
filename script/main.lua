@@ -205,6 +205,9 @@ sys.subscribe('IP_LOSE', function()
 end)
 
 -- SIM卡就绪一定时间后短信功能未就绪。将重启LTE协议栈
+-- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
+-- V1118 版本之前无SMS_READY消息。 Air780E
+-- V2020 版本之前无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
 sys.subscribe('IP_LOSE', function()
 	sys.taskInit(function()
 		local succ = sys.waitUntil('SMS_READY', 1000 * 20)
