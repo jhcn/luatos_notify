@@ -65,6 +65,13 @@ if sim.init(config.sim or {}) then
 	print('SIM卡配置', '初始化结束')
 end
 
+-- io电平
+for _, item in ipairs(config.io.custom or {}) do
+	local n, p = item.gpio, item.pull == 1 and 1 or 0
+	print('gpio', n, p)
+	gpio.setup(n, p)
+end
+
 -- LED指示灯
 if led then
 	local succ, ret = led.init(config.io.led or {})
@@ -204,13 +211,32 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
+-- SIM卡就绪一定时间后短信功能未就绪。将重启LTE协议栈
+-- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
+-- V1118 版本之前无SMS_READY消息。 Air780E
+-- V2020 版本之前无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
+sys.subscribe('IP_LOSE', function()
+	local m = {Air780PV = true, EC718PV	= true}
+	if m[hmeta.model()] then
+		return
+	end
+	sys.taskInit(function()
+		local succ = sys.waitUntil('SMS_READY', 1000 * 20)
+		if not succ then
+			mobile.reset()
+			print('网络重置', '原因', '短信功能超时未就绪')
+		else
+			print('短信', '功能就绪')
+		end
+	end)
+end)
+
 -- SIM卡就绪，等待联网，仅关注状态RDY
 sys.subscribe('SIM_IND', function(status, value)
-	if status == 'RDY' then
-		mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
-		mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
-		sys.publish('IP_LOSE')
-	end
+	if status ~= 'RDY' then return end
+	mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
+	mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
+	sys.publish('IP_LOSE')
 end)
 
 -- 短信指令
@@ -261,7 +287,8 @@ end
 -- VOLTE功能
 sys.subscribe('CC_IND', function(status)
 		if status == 'READY' then cc.init(0)
-	elseif status == 'HANGUP_CALL_DONE' or status == 'DISCONNECTED' then cc_reset()
+	elseif status == 'HANGUP_CALL_DONE'
+		or status == 'DISCONNECTED' then cc_reset()
 	elseif status == 'INCOMINGCALL' then
 
 		local sts = call.status
@@ -348,11 +375,6 @@ print('项目详情', PROJECT, VERSION)
 -- print('系统设置', json.encode(sys_cfg))
 
 -- 短信功能
-sys.subscribe('SMS_READY', function()
-	print('短信', '功能就绪')
-end)
-
--- 短信功能
 sys.subscribe('SMS_SENT', function(result)
 	print('发送短信', (result and '成功' or '失败'))
 end)
@@ -366,7 +388,7 @@ end)
 -- RRC状态
 sys.subscribe('CSCON', function(state)
 	-- if state == 1 then
-	--     mobile.config(mobile.CONF_MAX_TX_POWER, 0)
+	-- 	mobile.config(mobile.CONF_MAX_TX_POWER, 23)
 	-- end
 	-- print('CSCON', state)
 end)
