@@ -206,12 +206,11 @@ end)
 
 -- SIM卡就绪，等待联网，仅关注状态RDY
 sys.subscribe('SIM_IND', function(status, value)
-	if status ~= 'RDY' then
-		return
+	if status == 'RDY' then
+		mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
+		mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
+		sys.publish('IP_LOSE')
 	end
-	mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
-	mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
-	sys.publish('IP_LOSE')
 end)
 
 -- 短信指令
