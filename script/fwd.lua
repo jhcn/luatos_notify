@@ -184,7 +184,12 @@ local function handle(mail, from, netc, event, param)
 end
 
 local fwd = {
-	start = function(data)
+
+	job_cnt = function()
+		return #jobs
+	end,
+
+	add = function(data)
 
 		-- 向队列添加HTTP任务
 		local act = setting.http.actives or {}

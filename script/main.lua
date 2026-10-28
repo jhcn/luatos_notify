@@ -113,22 +113,20 @@ local ip_status = {     -- 网络状态
 	dis = 0             -- 断网次数
 }
 
--- 语音电话
-local call = {
-	event = {
-		['READY']            = '功能就绪',
-		['PLAY']             = '正在振铃',
-		['INCOMINGCALL']     = '有人致电',
-		['CONNECTED']        = '通话开始',
-		['SPEECH_START']     = '通话建立',
-		['DISCONNECTED']     = '通话断开',
-		['ANSWER_CALL_DONE'] = '接听电话，已执行',
-		['HANGUP_CALL_DONE'] = '挂断电话，已执行'
-	},
-	status = {
-		incoming = false,   -- 被叫状态
-		count    = 0        -- 振铃次数，挂断后重置为0
-	}
+local cc_status = {
+	incoming = false,   -- 被叫状态
+	count    = 0        -- 振铃次数，挂断后重置为0
+}
+
+local cc_msg = {
+	['READY']            = '功能就绪',
+	['PLAY']             = '正在振铃',
+	['INCOMINGCALL']     = '有人致电',
+	['CONNECTED']        = '通话开始',
+	['SPEECH_START']     = '通话建立',
+	['DISCONNECTED']     = '通话断开',
+	['ANSWER_CALL_DONE'] = '接听电话，已执行',
+	['HANGUP_CALL_DONE'] = '挂断电话，已执行'
 }
 
 -- 构建可控制模块的号码清单
@@ -143,8 +141,6 @@ end
 local function details()
 	local pf = sim.profile
 	return {
-		muid    = module.muid,
-		imei    = module.imei,
 		imsi    = pf.imsi,
 		plmn    = pf.plmn,
 		iccid   = pf.iccid,
@@ -154,6 +150,8 @@ local function details()
 		apn     = cellular.apn(),
 		rsrp    = cellular.rsrp(),
 		csq     = cellular.csq(),
+		muid    = module.muid,
+		imei    = module.imei,
 		ram     = module.ram(),
 		vbat    = module.vbat(),
 		temp    = module.temp(),
@@ -268,7 +266,7 @@ end)
 
 -- 收到短信
 sys.subscribe('SMS_INC', function(num, txt)
-	fwd.start({
+	fwd.add({
 		typ     = 'sms',
 		content = txt,
 		from    = num,
@@ -278,7 +276,7 @@ end)
 
 -- 重置cc状态
 local function cc_reset()
-	call.status = {
+	cc_status = {
 		incoming = false,
 		count    = 0
 	}
@@ -291,11 +289,11 @@ sys.subscribe('CC_IND', function(status)
 		or status == 'DISCONNECTED' then cc_reset()
 	elseif status == 'INCOMINGCALL' then
 
-		local sts = call.status
+		local sts = cc_status
 
 		-- 首次振铃
 		if not sts.incoming then
-			fwd.start({
+			fwd.add({
 				typ     = 'call',
 				content = '有人致电',
 				from    = cc.lastNum(),
@@ -305,13 +303,13 @@ sys.subscribe('CC_IND', function(status)
 
 		-- 更新状态
 		-- 改值而非新table覆盖之，可提升性能。但我不喜欢
-		call.status = {
+		cc_status = {
 			incoming = true,
 			count    = sts.count + 1
 		}
 
 	end
-	print('VOLTE功能', call.event[status] or status, cc.lastNum(), json.encode(call.status), status)
+	print('VOLTE功能', cc_msg[status] or status, cc.lastNum(), json.encode(cc_status), status)
 end)
 
 -- 网络就绪
@@ -345,7 +343,7 @@ if config.forward.startup == 1 then
 			txt = string.format('%s%-10s%s%s', txt, k, v, '\n')
 		end
 
-		fwd.start({
+		fwd.add({
 			typ     = 'msg',
 			content = txt,
 			from    = hmeta.model()
@@ -356,7 +354,7 @@ end
 -- 重启模块
 sys.subscribe('sys_reboot', function()
 	sys.taskInit(function()
-		if not call.status.incoming then
+		if fwd.job_cnt() < 1 then
 			pm.reboot()
 		else
 			sys.wait(1000 * 3)
@@ -387,9 +385,9 @@ end)
 
 -- RRC状态
 sys.subscribe('CSCON', function(state)
-	-- if state == 1 then
-	-- 	mobile.config(mobile.CONF_MAX_TX_POWER, 23)
-	-- end
+	if state == 1 then
+		mobile.config(mobile.CONF_MAX_TX_POWER, 23)
+	end
 	-- print('CSCON', state)
 end)
 

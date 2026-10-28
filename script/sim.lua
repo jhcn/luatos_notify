@@ -19,10 +19,10 @@ local brand = {
 
 -- 状态对应中文释义
 local status_map = {
-	['RDY']        = '已经就绪',
+	['RDY']        = '卡已就绪',
 	['NORDY']      = '未识别到',
 	['SIM_PIN']    = '需要验证',
-	['GET_NUMBER'] = '读取号码'
+	['GET_NUMBER'] = '获取号码'
 }
 
 local cfg = {}
@@ -41,7 +41,7 @@ local sim = {
 -- SIM卡就绪
 sys.subscribe('SIM_IND', function(status, value)
 
-	print('SIM卡', status_map[status] or '未知', status, value)
+	print('SIM状态', status_map[status] or '未知', status, value)
 
 	-- 仅关注RDY状态
 	if status ~= 'RDY' then return end
