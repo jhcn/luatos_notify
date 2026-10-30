@@ -211,8 +211,8 @@ end)
 
 -- SIM卡就绪一定时间后短信功能未就绪。将重启LTE协议栈
 -- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
--- V1118 版本之前无SMS_READY消息。 Air780E
--- V2020 版本之前无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
+-- V1118 之前版本无SMS_READY消息。 Air780E
+-- V2020 之前版本无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
 sys.subscribe('IP_LOSE', function()
 	local m = {Air780PV = true, EC718PV	= true}
 	if m[hmeta.model()] then
@@ -231,10 +231,11 @@ end)
 
 -- SIM卡就绪，等待联网，仅关注状态RDY
 sys.subscribe('SIM_IND', function(status, value)
-	if status ~= 'RDY' then return end
-	mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
-	mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
-	sys.publish('IP_LOSE')
+	if status == 'RDY' then
+		mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
+		mobile.config(mobile.CONF_QUALITYFIRST, 2)	-- 网络切换以信号质量优先
+		sys.publish('IP_LOSE')
+	end
 end)
 
 -- 短信指令
@@ -289,10 +290,8 @@ sys.subscribe('CC_IND', function(status)
 		or status == 'DISCONNECTED' then cc_reset()
 	elseif status == 'INCOMINGCALL' then
 
-		local sts = cc_status
-
 		-- 首次振铃
-		if not sts.incoming then
+		if not cc_status.incoming then
 			fwd.add({
 				typ     = 'call',
 				content = '有人致电',
@@ -305,7 +304,7 @@ sys.subscribe('CC_IND', function(status)
 		-- 改值而非新table覆盖之，可提升性能。但我不喜欢
 		cc_status = {
 			incoming = true,
-			count    = sts.count + 1
+			count    = cc_status.count + 1
 		}
 
 	end
