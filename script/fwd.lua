@@ -104,8 +104,8 @@ local build = {
 
 }
 
-local rxbuf = zbuff.create(2048)							-- 缓冲区
-local step  = 0 											-- 状态机
+local rxbuf = zbuff.create(2048)	-- 缓冲区
+local step  = 0 					-- 状态机
 
 -- 打包邮件报文
 local mail_pack = function(mail, from)

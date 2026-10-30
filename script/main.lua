@@ -24,16 +24,23 @@ local       led = require 'led'
 local  cellular = require 'cellular'
 local       fwd = require 'fwd'
 
-log.setLevel(config.system.log.level)               -- 输出日志级别，SILENT，DEBUG，INFO，WARN，ERROR，FATAL 0,1,2,3,4,5
-log.style(config.system.log.style)                  -- 日志风格
+-- 日志
+do
+	local s = config.system.log
+	log.setLevel(s.level)							-- 日志级别，参考https://docs.openluat.com/osapi/core/log/#_4
+    log.style(s.style)								-- 日志风格，参考https://docs.openluat.com/osapi/core/log/#43-logstyleval
+end
 
 mobile.ipv6(config.network.IPv6 == 1)       		-- IPv6开关，true/false
 mobile.setAuto(1000 * 5, 1000 * 10, 5)              -- SIM脱离后自动恢复/ms，搜索周围小区信息周期/ms，超时/s
-
-local ioc = config.io.default
-pm.ioVol(pm.IOVOL_ALL_GPIO, ioc.vol)                -- IO高电平时电压
-gpio.setDefaultPull(ioc.pull)                       -- IO默认电平
 pm.power(pm.WORK_MODE, 0)                           -- 休眠模式，不休眠
+
+-- IO
+do
+	local d = config.io.default
+	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol)                -- IO高电平时电压
+	gpio.setDefaultPull(d.pull)                       -- IO默认电平
+end
 
 -- USB电源
 -- 如关闭，会在开机2分钟后关闭，而非立即关闭
@@ -43,22 +50,17 @@ if config.usb.dpdm == 0 then
 	end, 1000 * 60 * 3)
 end
 
+-- USB网卡
+-- RNDIS
+if config.usb.net == 1 then
+	mobile.config(mobile.CONF_USB_ETHERNET, 3)
+end
+
 -- 随机种子
 sys.taskInit(function()
 	sys.waitUntil('IP_READY')
 	math.randomseed(mcu.ticks() or os.clock())
 end)
-
--- USB网卡
--- RNDIS
-if config.usb.net == 1 then
-	sys.taskInit(function()
-		sys.waitUntil('IP_READY')
-		mobile.flymode(sim.id, true)
-		mobile.config(mobile.CONF_USB_ETHERNET, 3)
-		mobile.flymode(sim.id, false)
-	end)
-end
 
 -- SIM卡配置
 if sim.init(config.sim or {}) then
@@ -176,15 +178,17 @@ end
 sys.taskInit(function()
 	local cfg = config.time or {}
 	local  on = cfg.sync == 1
+
 	mobile.syncTime(on)
 	if not on then return end
+
 	sys.waitUntil('IP_READY')
 	sys.wait(1000 * 5)
-	if os.time() > 1770000000 then
-		return
-	end
-	local srv = cfg.sntp.server
-	local  en = cfg.sntp.enabled
+
+	if not cfg.sntp or os.time() > 1770000000 then return end
+
+	local srv = cfg.sntp.server or {}
+	local  en = cfg.sntp.enabled == 1 and 1 or 0
 	if en == 1 and next(srv) then
 		print(json.encode(srv))
 		socket.sntp(srv)
@@ -192,8 +196,8 @@ sys.taskInit(function()
 end)
 
 -- 重启LTE协议栈，需符合下列条件之一
--- 1，开机一定时间后未联网
--- 2，断网一定时间后未恢复联网
+-- 1，开机一定时间内未联网
+-- 2，断网一定时间内未恢复联网
 -- 重启LTE协议栈会使底层重发SIM_IND消息
 sys.subscribe('IP_LOSE', function()
 	sys.taskInit(function()
@@ -209,15 +213,13 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
--- SIM卡就绪一定时间后短信功能未就绪。将重启LTE协议栈
+-- SIM卡RDY一定时间内短信功能未就绪将重启LTE协议栈
 -- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
 -- V1118 之前版本无SMS_READY消息。 Air780E
 -- V2020 之前版本无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
 sys.subscribe('IP_LOSE', function()
 	local m = {Air780PV = true, EC718PV	= true}
-	if m[hmeta.model()] then
-		return
-	end
+	if m[hmeta.model()] then return end
 	sys.taskInit(function()
 		local succ = sys.waitUntil('SMS_READY', 1000 * 20)
 		if not succ then
@@ -229,7 +231,7 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
--- SIM卡就绪，等待联网，仅关注状态RDY
+-- SIM卡RDY，等待IP_READY及SMS_READY
 sys.subscribe('SIM_IND', function(status, value)
 	if status == 'RDY' then
 		mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
@@ -276,7 +278,7 @@ sys.subscribe('SMS_INC', function(num, txt)
 end)
 
 -- 重置cc状态
-local function cc_reset()
+local function cc_rst()
 	cc_status = {
 		incoming = false,
 		count    = 0
@@ -287,7 +289,7 @@ end
 sys.subscribe('CC_IND', function(status)
 		if status == 'READY' then cc.init(0)
 	elseif status == 'HANGUP_CALL_DONE'
-		or status == 'DISCONNECTED' then cc_reset()
+		or status == 'DISCONNECTED' then cc_rst()
 	elseif status == 'INCOMINGCALL' then
 
 		-- 首次振铃
@@ -315,20 +317,18 @@ end)
 -- IP_READY会在双栈网络中重复出现
 -- IP_READY首次出现时标记已联网能有效避免代码重复执行
 sys.subscribe('IP_READY', function(ip, adapter)
+	if not ip_status.onl then				-- 未联网适用
+		ip_status.onl = true                -- 标记已联网
+		print('成功联网', ip, adapter)
+		print('网络详情', socket.localIP())
 
-	if ip_status.onl then return end    -- 已联网则退出
-	ip_status.onl = true                -- 标记已联网
-
-	print('成功联网', ip, adapter)
-	print('网络详情', socket.localIP())
-
-	-- DNS设置
-	local dns = config.network.dns or {}
-	for i, ns in ipairs(dns) do
-		socket.setDNS(adapter, i, ns)
-		print('网卡', adapter, 'DNS', i, ns)
+		-- DNS设置
+		local dns = config.network.dns or {}
+		for i, ns in ipairs(dns) do
+			socket.setDNS(adapter, i, ns)
+			print('网卡', adapter, 'DNS', i, ns)
+		end
 	end
-
 end)
 
 -- 开机通知
@@ -363,9 +363,11 @@ sys.subscribe('sys_reboot', function()
 end)
 
 -- 定时重启，小时
-local reboot = config.system.auto.reboot
-if reboot > 0 then
-	sys.timerStart(sys.publish, 1000 * 60 * 60 * reboot, 'sys_reboot')
+do
+	local t = config.system.auto.reboot
+	if t > 0 then
+		sys.timerStart(sys.publish, 1000 * 60 * 60 * t, 'sys_reboot')
+	end
 end
 
 print('项目详情', PROJECT, VERSION)
