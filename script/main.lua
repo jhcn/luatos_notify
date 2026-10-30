@@ -33,9 +33,9 @@ luatos不支持自调用语法
 
 -- 日志
 do
-	local s = config.system.log
-	log.setLevel(s.level)							-- 日志级别，参考https://docs.openluat.com/osapi/core/log/#_4
-    log.style(s.style)								-- 日志风格，参考https://docs.openluat.com/osapi/core/log/#43-logstyleval
+	local s = config.system.log or {}
+	log.setLevel(s.level or 2)						-- 日志级别，参考https://docs.openluat.com/osapi/core/log/#_4
+    log.style(s.style or 0)							-- 日志风格，参考https://docs.openluat.com/osapi/core/log/#43-logstyleval
 end
 
 mobile.ipv6(config.network.IPv6 == 1)       		-- IPv6开关，true/false
@@ -44,9 +44,9 @@ pm.power(pm.WORK_MODE, 0)                           -- 休眠模式，不休眠
 
 -- IO
 do
-	local d = config.io.default
-	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol)              -- IO高电平时电压
-	gpio.setDefaultPull(d.pull)                     -- IO默认电平
+	local d = config.io.default or {}
+	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol or 3300)      -- IO高电平时电压
+	gpio.setDefaultPull(d.pull or 0)                -- IO默认电平
 end
 
 -- USB电源
