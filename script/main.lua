@@ -24,6 +24,13 @@ local       led = require 'led'
 local  cellular = require 'cellular'
 local       fwd = require 'fwd'
 
+--[[
+
+luatos不支持自调用语法
+(function() end)()
+
+]]--
+
 -- 日志
 do
 	local s = config.system.log
@@ -38,8 +45,8 @@ pm.power(pm.WORK_MODE, 0)                           -- 休眠模式，不休眠
 -- IO
 do
 	local d = config.io.default
-	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol)                -- IO高电平时电压
-	gpio.setDefaultPull(d.pull)                       -- IO默认电平
+	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol)              -- IO高电平时电压
+	gpio.setDefaultPull(d.pull)                     -- IO默认电平
 end
 
 -- USB电源
@@ -50,8 +57,7 @@ if config.usb.dpdm == 0 then
 	end, 1000 * 60 * 3)
 end
 
--- USB网卡
--- RNDIS
+-- USB网卡，RNDIS
 if config.usb.net == 1 then
 	mobile.config(mobile.CONF_USB_ETHERNET, 3)
 end
@@ -93,50 +99,20 @@ end
 
 -- !!! 注意，初始化结束不代表成功
 
-local pow_off = {
-	pm.GPS,         -- gps
-	pm.GPS_ANT,     -- gps天线
-	pm.CAMERA       -- camera
-}
-
 -- 关闭供电
-for _, mod in ipairs(pow_off) do
+-- pm.GPS     gps
+-- pm.GPS_ANT gps天线
+-- pm.CAMERA  camera
+for _, mod in ipairs({pm.GPS, pm.GPS_ANT, pm.CAMERA}) do
 	pm.power(mod, 0)
 end
 
 -- sms.debug(true)
 
-local sys_cfg = {       -- 系统设置
-	admin = {}          -- 控制模块的号码清单
-}
-
 local ip_status = {     -- 网络状态
 	onl = false,        -- 联网状态
 	dis = 0             -- 断网次数
 }
-
-local cc_status = {
-	incoming = false,   -- 被叫状态
-	count    = 0        -- 振铃次数，挂断后重置为0
-}
-
-local cc_msg = {
-	['READY']            = '功能就绪',
-	['PLAY']             = '正在振铃',
-	['INCOMINGCALL']     = '有人致电',
-	['CONNECTED']        = '通话开始',
-	['SPEECH_START']     = '通话建立',
-	['DISCONNECTED']     = '通话断开',
-	['ANSWER_CALL_DONE'] = '接听电话，已执行',
-	['HANGUP_CALL_DONE'] = '挂断电话，已执行'
-}
-
--- 构建可控制模块的号码清单
-if next(config.system.admin) then
-	for _, v in pairs(config.system.admin) do
-		sys_cfg.admin[v] = true
-	end
-end
 
 -- 设备信息
 -- 务必在联网后调用
@@ -195,6 +171,7 @@ sys.taskInit(function()
 	end
 end)
 
+-- 等待IP_READY
 -- 重启LTE协议栈，需符合下列条件之一
 -- 1，开机一定时间内未联网
 -- 2，断网一定时间内未恢复联网
@@ -213,6 +190,7 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
+-- 等待SMS_READY
 -- SIM卡RDY一定时间内短信功能未就绪将重启LTE协议栈
 -- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
 -- V1118 之前版本无SMS_READY消息。 Air780E
@@ -231,7 +209,7 @@ sys.subscribe('IP_LOSE', function()
 	end)
 end)
 
--- SIM卡RDY，等待IP_READY及SMS_READY
+-- SIM卡RDY
 sys.subscribe('SIM_IND', function(status, value)
 	if status == 'RDY' then
 		mobile.config(mobile.CONF_STATICCONFIG, 1)	-- 开启静态网络优化
@@ -240,32 +218,43 @@ sys.subscribe('SIM_IND', function(status, value)
 	end
 end)
 
--- 短信指令
-sys.subscribe('SMS_INC', function(from, content)
-	-- 满足以下条件其一可短信控制本模块
-	-- 1，名单为空
-	-- 2，来信号码存在于名单内
-	if not next(config.system.admin) or sys_cfg.admin[from] then
-		-- 内容含字符##
-		if not content:match('##') then return end
-		-- 以##为关键词分割
-		local parts = content:split('##')
-		-- 满足以下全部条件的短信内容将判定为短信发送指令
-		-- 1，数组值不少于3个
-		-- 2，第一个值是SMS
-		-- 3，第二个值是数字
-		if #parts < 3 then return end
-		local cmd = parts[1]:lower()
-		local num = parts[2]
-		if cmd == 'sms' and tonumber(num) then
-			local send_txt = table.concat(parts, '##', 3)
-			local send_to  = num
-			print('发送短信', send_to, send_txt)
-			sms.send(send_to, send_txt, false)
-		end
-		-- 示例，sms##10001##108
+-- 指令
+do
+	-- 管理员号码
+	local admins = {}
+
+	-- 构建可控制模块的号码清单
+	for _, n in pairs(config.system.admin or {}) do
+		admins[n] = true
 	end
-end)
+
+	-- 短信指令
+	sys.subscribe('SMS_INC', function(from, content)
+		-- 满足以下条件其一可短信控制本模块
+		-- 1，名单为空
+		-- 2，来信号码存在于名单内
+		if not next(admins) or admins[from] then
+			-- 内容含字符##
+			if not content:match('##') then return end
+			-- 以##为关键词分割
+			local parts = content:split('##')
+			-- 满足以下全部条件的短信内容将判定为短信发送指令
+			-- 1，数组值不少于3个
+			-- 2，第一个值是SMS
+			-- 3，第二个值是数字
+			if #parts < 3 then return end
+			local cmd = parts[1]:lower()
+			local num = parts[2]
+			if cmd == 'sms' and tonumber(num) then
+				local send_txt = table.concat(parts, '##', 3)
+				local send_to  = num
+				print('发送短信', send_to, send_txt)
+				sms.send(send_to, send_txt, false)
+			end
+			-- 示例，sms##10001##108
+		end
+	end)
+end
 
 -- 收到短信
 sys.subscribe('SMS_INC', function(num, txt)
@@ -277,41 +266,60 @@ sys.subscribe('SMS_INC', function(num, txt)
 	})
 end)
 
--- 重置cc状态
-local function cc_rst()
-	cc_status = {
-		incoming = false,
-		count    = 0
-	}
-end
 
 -- VOLTE功能
-sys.subscribe('CC_IND', function(status)
-		if status == 'READY' then cc.init(0)
-	elseif status == 'HANGUP_CALL_DONE'
-		or status == 'DISCONNECTED' then cc_rst()
-	elseif status == 'INCOMINGCALL' then
+do
+	local e = {
+		['READY']            = '功能就绪',
+		['PLAY']             = '正在振铃',
+		['INCOMINGCALL']     = '有人致电',
+		['CONNECTED']        = '通话开始',
+		['SPEECH_START']     = '通话建立',
+		['DISCONNECTED']     = '通话断开',
+		['ANSWER_CALL_DONE'] = '接听电话，已执行',
+		['HANGUP_CALL_DONE'] = '挂断电话，已执行'
+	}
 
-		-- 首次振铃
-		if not cc_status.incoming then
-			fwd.add({
-				typ     = 'call',
-				content = '有人致电',
-				from    = cc.lastNum(),
-				me      = my_number()
-			})
-		end
+	local s = {
+		incoming = false,   -- 被叫状态
+		count    = 0        -- 振铃次数，挂断后重置为0
+	}
 
-		-- 更新状态
-		-- 改值而非新table覆盖之，可提升性能。但我不喜欢
-		cc_status = {
-			incoming = true,
-			count    = cc_status.count + 1
+	-- 重置状态
+	local function rst()
+		s = {
+			incoming = false,
+			count    = 0
 		}
-
 	end
-	print('VOLTE功能', cc_msg[status] or status, cc.lastNum(), json.encode(cc_status), status)
-end)
+
+	sys.subscribe('CC_IND', function(status)
+			if status == 'READY' then cc.init(0)
+		elseif status == 'HANGUP_CALL_DONE'
+			or status == 'DISCONNECTED' then rst()
+		elseif status == 'INCOMINGCALL' then
+
+			-- 首次振铃
+			if not s.incoming then
+				fwd.add({
+					typ     = 'call',
+					content = '有人致电',
+					from    = cc.lastNum(),
+					me      = my_number()
+				})
+			end
+
+			-- 更新状态
+			-- 改值而非新table覆盖之，可提升性能。但我不喜欢
+			s = {
+				incoming = true,
+				count    = s.count + 1
+			}
+
+		end
+		print('VOLTE功能', e[status] or status, cc.lastNum(), json.encode(s), status)
+	end)
+end
 
 -- 网络就绪
 -- IP_READY会在双栈网络中重复出现
@@ -371,7 +379,6 @@ do
 end
 
 print('项目详情', PROJECT, VERSION)
--- print('系统设置', json.encode(sys_cfg))
 
 -- 短信功能
 sys.subscribe('SMS_SENT', function(result)
