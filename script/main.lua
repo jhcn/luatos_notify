@@ -24,8 +24,6 @@ local       led = require 'led'
 local  cellular = require 'cellular'
 local       fwd = require 'fwd'
 
--- luatos不支持自调用语法 (function() end)()
-
 -- 日志
 do
 	local s = config.system.log or {}
