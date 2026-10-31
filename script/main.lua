@@ -24,12 +24,7 @@ local       led = require 'led'
 local  cellular = require 'cellular'
 local       fwd = require 'fwd'
 
---[[
-
-luatos不支持自调用语法
-(function() end)()
-
-]]--
+-- luatos不支持自调用语法 (function() end)()
 
 -- 日志
 do
@@ -49,15 +44,14 @@ do
 	gpio.setDefaultPull(d.pull or 0)                -- IO默认电平
 end
 
--- USB电源
+-- USB电源，1开，0关
 -- 如关闭，会在开机2分钟后关闭，而非立即关闭
-if config.usb.dpdm == 0 then
-	sys.timerStart(function()
-		pm.power(pm.USB, false)
-	end, 1000 * 60 * 3)
+do
+	local x = config.usb.dpdm == 1
+	sys.timerStart(pm.power, 1000 * 60 * 2, pm.USB, x)
 end
 
--- USB网卡，RNDIS
+-- USB网卡，RNDIS 3，ECM 7
 if config.usb.net == 1 then
 	mobile.config(mobile.CONF_USB_ETHERNET, 3)
 end
@@ -266,7 +260,6 @@ sys.subscribe('SMS_INC', function(num, txt)
 	})
 end)
 
-
 -- VOLTE功能
 do
 	local e = {
@@ -285,20 +278,19 @@ do
 		count    = 0        -- 振铃次数，挂断后重置为0
 	}
 
-	-- 重置状态
-	local function rst()
-		s = {
-			incoming = false,
-			count    = 0
-		}
+	-- 更新状态
+	-- 值为1时，振铃，振铃数加1
+	-- 值非1时，挂断，振铃数归0
+	local function r(v)
+		s.incoming = v == 1
+		s.count    = v == 1 and s.count + 1 or 0
 	end
 
 	sys.subscribe('CC_IND', function(status)
 			if status == 'READY' then cc.init(0)
 		elseif status == 'HANGUP_CALL_DONE'
-			or status == 'DISCONNECTED' then rst()
+			or status == 'DISCONNECTED' then r(0)
 		elseif status == 'INCOMINGCALL' then
-
 			-- 首次振铃
 			if not s.incoming then
 				fwd.add({
@@ -308,14 +300,7 @@ do
 					me      = my_number()
 				})
 			end
-
-			-- 更新状态
-			-- 改值而非新table覆盖之，可提升性能。但我不喜欢
-			s = {
-				incoming = true,
-				count    = s.count + 1
-			}
-
+			r(1)
 		end
 		print('VOLTE功能', e[status] or status, cc.lastNum(), json.encode(s), status)
 	end)
