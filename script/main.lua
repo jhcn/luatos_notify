@@ -24,6 +24,8 @@ local       led = require 'led'
 local  cellular = require 'cellular'
 local       fwd = require 'fwd'
 
+-- do end块可限制变量作用域
+
 -- 日志
 do
 	local s = config.system.log or {}
@@ -40,6 +42,11 @@ do
 	local d = config.io.default or {}
 	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol or 3300)      -- IO高电平时电压
 	gpio.setDefaultPull(d.pull or 0)                -- IO默认电平
+end
+
+-- 关闭供电，参考https://docs.openluat.com/osapi/core/pm/#_2
+for _, mod in ipairs({pm.GPS, pm.GPS_ANT, pm.CAMERA}) do
+	pm.power(mod, false)
 end
 
 -- USB电源，1开，0关
@@ -78,9 +85,6 @@ if led then
 	print('LED指示灯', json.encode(succ and ret or {}))
 end
 
--- gpio.setup(27, 1)
--- gpio.setup(30, 1)
-
 -- 转发通道初始化
 if fwd then
 	local h = fwd.init.http(config.forward.http or {})
@@ -90,14 +94,6 @@ if fwd then
 end
 
 -- !!! 注意，初始化结束不代表成功
-
--- 关闭供电
--- pm.GPS     gps
--- pm.GPS_ANT gps天线
--- pm.CAMERA  camera
-for _, mod in ipairs({pm.GPS, pm.GPS_ANT, pm.CAMERA}) do
-	pm.power(mod, 0)
-end
 
 -- sms.debug(true)
 
@@ -141,33 +137,39 @@ local my_number = function()
 	return sim.profile.number
 end
 
--- 对时
--- 默认基站，如失败且sntp开启则使用ntp服务器
-sys.taskInit(function()
-	local cfg = config.time or {}
-	local  on = cfg.sync == 1
+-- 对时，如开启，默认基站
+-- 使用sntp需满足下列全部条件
+-- 1，基站对时不成功
+-- 2，允许使用sntp
+-- 3，有配置ntp服务器
+do
+	local c = config.time or {}
+	local o = c.sync == 1
 
-	mobile.syncTime(on)
-	if not on then return end
+	mobile.syncTime(o)
+	if not o then return end
 
-	sys.waitUntil('IP_READY')
-	sys.wait(1000 * 5)
+	sys.taskInit(function()
+		sys.waitUntil('IP_READY')
+		sys.wait(1000 * 5)
 
-	if not cfg.sntp or os.time() > 1770000000 then return end
+		if not c.sntp or os.time() > 1770000000 then return end
 
-	local srv = cfg.sntp.server or {}
-	local  en = cfg.sntp.enabled == 1 and 1 or 0
-	if en == 1 and next(srv) then
-		print(json.encode(srv))
-		socket.sntp(srv)
-	end
-end)
+		local t = c.sntp
+		local e = t.enabled == 1 and 1 or 0
+		local s = t.server or {}
+		if e == 1 and next(s) then
+			print(json.encode(s))
+			socket.sntp(s)
+		end
+	end)
+end
 
 -- 等待IP_READY
--- 重启LTE协议栈，需符合下列条件之一
+-- 重置LTE协议栈，需符合下列条件之一
 -- 1，开机一定时间内未联网
 -- 2，断网一定时间内未恢复联网
--- 重启LTE协议栈会使底层重发SIM_IND消息
+-- 重置LTE协议栈会使底层重发SIM_IND消息
 sys.subscribe('IP_LOSE', function()
 	sys.taskInit(function()
 		ip_status = {
@@ -183,23 +185,33 @@ sys.subscribe('IP_LOSE', function()
 end)
 
 -- 等待SMS_READY
--- SIM卡RDY一定时间内短信功能未就绪将重启LTE协议栈
--- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
--- V1118 之前版本无SMS_READY消息。 Air780E
--- V2020 之前版本无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
-sys.subscribe('IP_LOSE', function()
-	local m = {Air780PV = true, EC718PV	= true}
-	if m[hmeta.model()] then return end
-	sys.taskInit(function()
-		local succ = sys.waitUntil('SMS_READY', 1000 * 20)
-		if not succ then
-			mobile.reset()
-			print('网络重置', '原因', '短信功能超时未就绪')
-		else
-			print('短信', '功能就绪')
-		end
+-- SIM卡RDY一定时间内没等到将重启LTE协议栈
+do
+	-- 例外型号，不参与SMS_READY等待
+	local m = {
+		Air780PV = true,
+		EC718PV	 = true
+	}
+
+	if m[hmeta.model()] then
+		return
+	end
+
+	sys.subscribe('IP_LOSE', function()
+		sys.taskInit(function()
+			local succ = sys.waitUntil('SMS_READY', 1000 * 20)
+			if not succ then
+				mobile.reset()
+				print('网络重置', '原因', '短信功能超时未就绪')
+			else
+				print('短信', '功能就绪')
+			end
+		end)
 	end)
-end)
+	-- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
+	-- V1118 之前版本无SMS_READY消息。 Air780E
+	-- V2020 之前版本无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
+end
 
 -- SIM卡RDY
 sys.subscribe('SIM_IND', function(status, value)
@@ -304,7 +316,7 @@ do
 	end)
 end
 
--- 网络就绪
+-- 网络就绪，设置DNS
 -- IP_READY会在双栈网络中重复出现
 -- IP_READY首次出现时标记已联网能有效避免代码重复执行
 sys.subscribe('IP_READY', function(ip, adapter)
