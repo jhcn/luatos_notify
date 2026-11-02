@@ -183,95 +183,6 @@ local function handle(mail, from, netc, event, param)
 	end
 end
 
-local fwd = {
-
-	job_cnt = function()
-		return #jobs
-	end,
-
-	add = function(data)
-
-		-- 向队列添加HTTP任务
-		local act = setting.http.actives or {}
-		local cfg = setting.http.configs or {}
-		for _, i in ipairs(act) do
-			local method, url, headers, body = build[i](cfg[i], data)
-			if method and url then
-				jobs[#jobs + 1] = {
-					msgtyp  = 'http',
-					method  = method,
-					url     = url,
-					headers = headers,
-					body    = body
-				}
-			end
-		end
-
-		-- 向队列添加SMTP任务
-		local rc = setting.smtp.to or {}
-		local sj = (data.content or ''):match('【(.-)】') or data.typ:upper()
-		local bd = table.concat({data.content or '', '', data.from or '', data.me or ''}, '\n')
-		for _, rp in ipairs(rc) do
-			jobs[#jobs + 1] = {
-				msgtyp  = 'smtp',
-				subject = sj,
-				body 	= bd,
-				to 		= rp
-			}
-		end
-
-		sys.publish('job_enq')
-	end,
-
-	init = {
-		-- 构建HTTP通知清单
-		http = function(cfg)
-			local actives = {}
-			local configs = {}
-			for i, chl in pairs(cfg.service) do
-				if chl.enabled == 1 then
-					actives[#actives + 1] = i
-					configs[i] = chl
-				end
-			end
-
-			-- 默认User-Agent
-			local function ua(str)
-				if not str or str == '' then
-					local fws = rtos.firmware():split('_')
-					local hmt = string.format('%s_%s', hmeta.model(), hmeta.hwver())
-					str = table.concat({fws[1], fws[2], hmt, hmeta.chip(), rtos.buildDate()}, '; ')
-				end
-				return string.format('Mozilla/5.0 (compatible; %s)', str)
-			end
-
-			-- 赋值
-			local useropt = cfg.options or {}
-			setting.http = {
-				actives = actives,
-				configs = configs,
-				options = {
-					retries = tonumber(useropt.retries) or 10,
-					timeout = tonumber(useropt.timeout) or 20,
-					ua 		= ua(useropt.ua)
-				}
-			}
-			return actives
-		end,
-
-		-- 初始化SMTP
-		smtp = function(cfg)
-			local to = (type(cfg.to) == 'table' and #cfg.to > 0 and cfg.enabled == 1) and cfg.to or {}
-			setting.smtp = {
-				retries = tonumber(cfg.retries) or 10,
-				from 	= cfg.from or {},
-				to 	 	= to
-			}
-			return to
-		end
-	}
-}
-
 local function tryV6()
 	-- IPv6可用，随机返回true，false
 	-- IPv6离线，返回false
@@ -339,6 +250,96 @@ local run = {
 			sys.publish(fwd_id)
 		end)
 	end
+}
+
+local fwd = {
+
+	job_cnt = function()
+		return #jobs
+	end,
+
+	init = {
+		-- 构建HTTP通知清单
+		http = function(cfg)
+			local actives = {}
+			local configs = {}
+			for i, chl in pairs(cfg.service) do
+				if chl.enabled == 1 then
+					actives[#actives + 1] = i
+					configs[i] = chl
+				end
+			end
+
+			-- 默认User-Agent
+			local function ua(str)
+				if not str or str == '' then
+					local fws = rtos.firmware():split('_')
+					local hmt = string.format('%s_%s', hmeta.model(), hmeta.hwver())
+					str = table.concat({fws[1], fws[2], hmt, hmeta.chip(), rtos.buildDate()}, '; ')
+				end
+				return string.format('Mozilla/5.0 (compatible; %s)', str)
+			end
+
+			-- 赋值
+			local useropt = cfg.options or {}
+			setting.http = {
+				actives = actives,
+				configs = configs,
+				options = {
+					retries = tonumber(useropt.retries) or 10,
+					timeout = tonumber(useropt.timeout) or 20,
+					ua 		= ua(useropt.ua)
+				}
+			}
+			return actives
+		end,
+
+		-- 初始化SMTP
+		smtp = function(cfg)
+			local to = (type(cfg.to) == 'table' and #cfg.to > 0 and cfg.enabled == 1) and cfg.to or {}
+			setting.smtp = {
+				retries = tonumber(cfg.retries) or 10,
+				from 	= cfg.from or {},
+				to 	 	= to
+			}
+			return to
+		end
+	},
+
+	add = function(data)
+
+		-- 向队列添加HTTP任务
+		local act = setting.http.actives or {}
+		local cfg = setting.http.configs or {}
+		for _, i in ipairs(act) do
+			local method, url, headers, body = build[i](cfg[i], data)
+			if method and url then
+				jobs[#jobs + 1] = {
+					msgtyp  = 'http',
+					method  = method,
+					url     = url,
+					headers = headers,
+					body    = body
+				}
+			end
+		end
+
+		-- 向队列添加SMTP任务
+		local rc = setting.smtp.to or {}
+		local sj = (data.content or ''):match('【(.-)】') or data.typ:upper()
+		local bd = table.concat({data.content or '', '', data.from or '', data.me or ''}, '\n')
+		for _, rp in ipairs(rc) do
+			jobs[#jobs + 1] = {
+				msgtyp  = 'smtp',
+				subject = sj,
+				body 	= bd,
+				to 		= rp
+			}
+		end
+
+		sys.publish('job_enq')
+	end
+
 }
 
 -- 队列处理

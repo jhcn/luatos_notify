@@ -105,14 +105,13 @@ local ip_status = {     -- 网络状态
 -- 设备信息
 -- 务必在联网后调用
 local function details()
-	local pf = sim.profile
 	return {
-		imsi    = pf.imsi,
-		plmn    = pf.plmn,
-		iccid   = pf.iccid,
-		sim_id  = pf.id,
-		number  = pf.number,
-		brand 	= pf.brand,
+		imsi    = sim.imsi,
+		plmn    = sim.plmn,
+		iccid   = sim.iccid,
+		sim_id  = sim.id,
+		number  = sim.number,
+		brand 	= sim.brand,
 		apn     = cellular.apn(),
 		rsrp    = cellular.rsrp(),
 		csq     = cellular.csq(),
@@ -129,12 +128,6 @@ end
 -- 手机号码校验
 local function is_mobile(num)
 	return (#num == 11 and num:match('^1[3-9]'))
-end
-
--- 本机号码
-local my_number = function()
-	-- return nil
-	return sim.profile.number
 end
 
 -- 对时，如开启，默认基站
@@ -266,7 +259,7 @@ sys.subscribe('SMS_INC', function(num, txt)
 		typ     = 'sms',
 		content = txt,
 		from    = num,
-		me      = my_number()
+		me      = sim.number
 	})
 end)
 
@@ -307,7 +300,7 @@ do
 					typ     = 'call',
 					content = '有人致电',
 					from    = cc.lastNum(),
-					me      = my_number()
+					me      = sim.number
 				})
 			end
 			r(1)
