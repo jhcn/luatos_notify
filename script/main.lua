@@ -17,20 +17,20 @@ if wdt then
 end
 
 -- 局部变量，用户库
-local    config = require 'config'
-local    module = require 'module'
-local       sim = require 'sim'
-local       led = require 'led'
-local  cellular = require 'cellular'
-local       fwd = require 'fwd'
+local   config = require 'config'
+local   module = require 'module'
+local      sim = require 'sim'
+local      led = require 'led'
+local cellular = require 'cellular'
+local      fwd = require 'fwd'
 
 -- do end块可限制变量作用域
 
 -- 日志
 do
 	local s = config.system.log or {}
-	log.setLevel(s.level or 2)						-- 日志级别，参考https://docs.openluat.com/osapi/core/log/#_4
-    log.style(s.style or 0)							-- 日志风格，参考https://docs.openluat.com/osapi/core/log/#43-logstyleval
+	log.setLevel(s.level or 2)						-- 日志级别，https://docs.openluat.com/osapi/core/log/#_4
+    log.style(s.style or 0)							-- 日志风格，https://docs.openluat.com/osapi/core/log/#43-logstyleval
 end
 
 mobile.ipv6(config.network.IPv6 == 1)       		-- IPv6开关，true/false
@@ -40,24 +40,23 @@ pm.power(pm.WORK_MODE, 0)                           -- 休眠模式，不休眠
 -- IO
 do
 	local d = config.io.default or {}
-	pm.ioVol(pm.IOVOL_ALL_GPIO, d.vol or 3300)      -- IO高电平时电压
 	gpio.setDefaultPull(d.pull or 0)                -- IO默认电平
+	pm.ioVol(pm.IOVOL_ALL_GPIO, d.volt or 3300)     -- IO高电平时电压
 end
 
--- 关闭供电，参考https://docs.openluat.com/osapi/core/pm/#_2
+-- 关闭供电，https://docs.openluat.com/osapi/core/pm/#_2
 for _, mod in ipairs({pm.GPS, pm.GPS_ANT, pm.CAMERA}) do
 	pm.power(mod, false)
 end
 
--- USB电源，1开，0关
--- 如关闭，会在开机2分钟后关闭，而非立即关闭
-do
-	local x = config.usb.dpdm == 1
-	sys.timerStart(pm.power, 1000 * 60 * 2, pm.USB, x)
+-- USB data，1开，0关
+-- 如关闭，开机2分钟后执行，而非立刻
+if config.usb.dpdm ~= 1 then
+	sys.timerStart(pm.power, 1000 * 60 * 2, pm.USB, false)
 end
 
 -- USB网卡，RNDIS 3，ECM 7
-if config.usb.net == 1 then
+if config.usb.nic == 1 then
 	mobile.config(mobile.CONF_USB_ETHERNET, 3)
 end
 
@@ -74,9 +73,7 @@ end
 
 -- io电平
 for _, item in ipairs(config.io.custom or {}) do
-	local n, p = item.gpio, item.pull == 1 and 1 or 0
-	print('gpio', n, p)
-	gpio.setup(n, p)
+	gpio.setup(item.gpio, item.pull == 1 and 1 or 0)
 end
 
 -- LED指示灯
@@ -97,33 +94,10 @@ end
 
 -- sms.debug(true)
 
-local ip_status = {     -- 网络状态
+local ip_status = {
 	onl = false,        -- 联网状态
 	dis = 0             -- 断网次数
 }
-
--- 设备信息
--- 务必在联网后调用
-local function details()
-	return {
-		imsi    = sim.imsi,
-		plmn    = sim.plmn,
-		iccid   = sim.iccid,
-		sim_id  = sim.id,
-		number  = sim.number,
-		brand 	= sim.brand,
-		apn     = cellular.apn(),
-		rsrp    = cellular.rsrp(),
-		csq     = cellular.csq(),
-		muid    = module.muid,
-		imei    = module.imei,
-		ram     = module.ram(),
-		vbat    = module.vbat(),
-		temp    = module.temp(),
-		uptime  = module.uptime(),
-		os      = module.os()
-	}
-end
 
 -- 手机号码校验
 local function is_mobile(num)
@@ -141,7 +115,6 @@ do
 
 	mobile.syncTime(o)
 	if not o then return end
-
 	sys.taskInit(function()
 		sys.waitUntil('IP_READY')
 		sys.wait(1000 * 5)
@@ -158,11 +131,8 @@ do
 	end)
 end
 
--- 等待IP_READY
--- 重置LTE协议栈，需符合下列条件之一
--- 1，开机一定时间内未联网
--- 2，断网一定时间内未恢复联网
--- 重置LTE协议栈会使底层重发SIM_IND消息
+-- 等待IP_READY，超时则重置LTE使系统重发SIM_IND
+-- 场景 1，开机未联网 2，断网未恢复联网
 sys.subscribe('IP_LOSE', function()
 	sys.taskInit(function()
 		ip_status = {
@@ -186,7 +156,7 @@ do
 		EC718PV	 = true
 	}
 
-	if m[hmeta.model()] then
+	if m[module.name] then
 		return
 	end
 
@@ -202,8 +172,10 @@ do
 		end)
 	end)
 	-- 需关注底层版本号，不正确的底层将造成严重故障(周期性重启LTE协议栈)
-	-- V1118 之前版本无SMS_READY消息。 Air780E
-	-- V2020 之前版本无SMS_READY消息。 Air780EPM/EHM/Air8000/Air780EP
+	-- https://gitee.com/openLuat/LuatOS/releases/tag/v1118.ec618.release
+	-- https://gitee.com/openLuat/LuatOS/releases/tag/v2020.ec7xx.release
+	-- V1118 起支持SMS_READY Air780E/Air780EG
+	-- V2020 起支持SMS_READY Air780EPM/EHM/Air8000/Air780EP
 end
 
 -- SIM卡RDY
@@ -220,35 +192,37 @@ do
 	-- 管理员号码
 	local admins = {}
 
-	-- 构建可控制模块的号码清单
+	-- 构建管理员号码名单
 	for _, n in pairs(config.system.admin or {}) do
 		admins[n] = true
 	end
 
 	-- 短信指令
 	sys.subscribe('SMS_INC', function(from, content)
-		-- 满足以下条件其一可短信控制本模块
-		-- 1，名单为空
-		-- 2，来信号码存在于名单内
-		if not next(admins) or admins[from] then
-			-- 内容含字符##
-			if not content:match('##') then return end
-			-- 以##为关键词分割
-			local parts = content:split('##')
-			-- 满足以下全部条件的短信内容将判定为短信发送指令
-			-- 1，数组值不少于3个
-			-- 2，第一个值是SMS
-			-- 3，第二个值是数字
-			if #parts < 3 then return end
-			local cmd = parts[1]:lower()
-			local num = parts[2]
-			if cmd == 'sms' and tonumber(num) then
-				local send_txt = table.concat(parts, '##', 3)
-				local send_to  = num
-				print('发送短信', send_to, send_txt)
-				sms.send(send_to, send_txt, false)
-			end
-			-- 示例，sms##10001##108
+		-- 短信控制模块：名单为空或来信号码在名单内
+		if next(admins) and not admins[from] then return end
+
+		-- 以##为关键词分割短信内容
+		local parts = content:split('##')
+
+		if #parts < 2 or parts[1]:lower() ~= 'cmd' then return end
+		table.remove(parts, 1)
+
+		-- 指令类型，号码
+		local cmd, num = parts[1]:lower(), parts[2]
+
+		-- 重启系统，示例cmd##reboot
+		if cmd == 'reboot' then
+			print('短信指令', '重启系统')
+			sys.publish('sys_reboot')
+		end
+
+		-- 发出短信，示例，cmd##sms##10001##108
+		-- 需满足所列全部条件 1，第一个值是SMS 2，数组值不少于3个 3，第二个值是数字
+		if cmd == 'sms' and #parts > 2 and tonumber(num) then
+			local txt = table.concat(parts, '##', 3)
+			print('短信指令', '发送短信', num, txt)
+			sms.send(num, txt, false)
 		end
 	end)
 end
@@ -283,7 +257,7 @@ do
 
 	-- 更新状态
 	-- 值为1时，振铃，振铃数加1
-	-- 值非1时，挂断，振铃数归0
+	-- 值为0时，挂断，振铃数归0
 	local function r(v)
 		s.incoming = v == 1
 		s.count    = v == 1 and s.count + 1 or 0
@@ -309,16 +283,14 @@ do
 	end)
 end
 
--- 网络就绪，设置DNS
--- IP_READY会在双栈网络中重复出现
--- IP_READY首次出现时标记已联网能有效避免代码重复执行
+-- IP_READY，设置DNS
 sys.subscribe('IP_READY', function(ip, adapter)
-	if not ip_status.onl then				-- 未联网适用
-		ip_status.onl = true                -- 标记已联网
+	-- 系统未联网，IP_READY时，执行
+	-- 系统已联网，IP_READY时，跳过
+	if not ip_status.onl then
+		ip_status.onl = true
 		print('成功联网', ip, adapter)
 		print('网络详情', socket.localIP())
-
-		-- DNS设置
 		local dns = config.network.dns or {}
 		for i, ns in ipairs(dns) do
 			socket.setDNS(adapter, i, ns)
@@ -328,34 +300,44 @@ sys.subscribe('IP_READY', function(ip, adapter)
 end)
 
 -- 开机通知
-if config.forward.startup == 1 then
+if config.forward.start_msg == 1 then
 	sys.taskInit(function()
 		sys.waitUntil('IP_READY')
-		local content = details()
+		local content = {
+			imsi    = sim.imsi,
+			plmn    = sim.plmn,
+			iccid   = sim.iccid,
+			number  = sim.number,
+			brand 	= sim.brand,
+			apn     = cellular.apn(),
+			rsrp    = cellular.rsrp(),
+			csq     = cellular.csq(),
+			muid    = module.muid,
+			imei    = module.imei,
+			vbat    = module.vbat(),
+			temp    = module.temp(),
+			uptime  = module.uptime()
+		}
 		-- 转为字符串
-		local txt = ''
+		local txt = {}
 		for k, v in pairs(content) do
-			txt = string.format('%s%-10s%s%s', txt, k, v, '\n')
+			txt[#txt + 1] = string.format('%-10s%s', k, v)
 		end
-
 		fwd.add({
 			typ     = 'msg',
-			content = txt,
-			from    = hmeta.model()
+			content = table.concat(txt, '\n'),
+			from    = module.name
 		})
 	end)
 end
 
 -- 重启模块
 sys.subscribe('sys_reboot', function()
-	sys.taskInit(function()
-		if fwd.job_cnt() < 1 then
-			pm.reboot()
-		else
-			sys.wait(1000 * 3)
-			sys.publish('sys_reboot')
-		end
-	end)
+	if fwd.job_cnt() > 0 then
+		sys.timerStart(sys.publish, 1000 * 3, 'sys_reboot')
+	else
+		pm.reboot()
+	end
 end)
 
 -- 定时重启，小时
@@ -365,8 +347,6 @@ do
 		sys.timerStart(sys.publish, 1000 * 60 * 60 * t, 'sys_reboot')
 	end
 end
-
-print('项目详情', PROJECT, VERSION)
 
 -- 短信功能
 sys.subscribe('SMS_SENT', function(result)
@@ -386,5 +366,7 @@ sys.subscribe('CSCON', function(state)
 	end
 	-- print('CSCON', state)
 end)
+
+print('项目详情', PROJECT, VERSION)
 
 sys.run()

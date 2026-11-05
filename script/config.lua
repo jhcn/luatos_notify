@@ -1,49 +1,6 @@
 return {
-	usb = {
-		dpdm = 1,
-		net  = 0
-	},
-	time = {
-		sync = 1,
-		sntp = {
-			enabled = 1,
-			server  = {'time.apple.com', 'time.windows.com', 'ntp.aliyun.com'}
-		}
-	},
-	network = {
-		IPv6 = 1,
-		dns  = {'180.184.2.2', '223.6.6.6'}
-	},
-	io = {
-		default = {
-			pull = 0,
-			vol  = 3300
-		},
-		led = {
-			{
-				role = 'network',
-				gpio = 30,
-				pull = 0
-			},
-			{
-				role = 'event',
-				gpio = 27,
-				pull = 0
-			}
-		}
-	},
-	system = {
-		auto = {
-			reboot = 24
-		},
-		log = {
-			level = 2,
-			style = 1
-		},
-		admin = {'13900000001', '13900000002'}
-	},
 	forward = {
-		startup = 1,
+		start_msg = 1,
 		http = {
 			service = {
 				wecom = {
@@ -60,7 +17,7 @@ return {
 				},
 				bark = {
 					enabled = 0,
-					url     = 'https://api.day.app/JZNMufhGeCRgHhPHYkE2ie'
+					url     = 'https://api.day.app/xxx'
 				},
 				telegram = {
 					enabled = 0,
@@ -75,7 +32,7 @@ return {
 				huaiot = {
 					enabled = 0,
 					url     = 'https://api.iot.999909.xyz/obj',
-					auth    = '123abc'
+					auth    = 'abc'
 				}
 			},
 			options = {
@@ -91,11 +48,11 @@ return {
 				port = 465,
 				ssl  = 1,
 				user = '12345@qq.com',
-				pass = '123abc'
+				pass = 'xxx'
 			},
 			to = {
 				'eg02ewaxa5d@icloud.com',
-				'1944060020@qq.com'
+				'1234@p.sb'
 			},
 			retries = 10
 		}
@@ -108,6 +65,55 @@ return {
 			number = '13900000002',
 			brand  = '中国移动'
 		}
+	},
+	network = {
+		IPv6 = 1,
+		dns  = {'180.184.2.2', '119.29.29.29'}
+	},
+	time = {
+		sync = 1,
+		sntp = {
+			enabled = 1,
+			server  = {'time.apple.com', 'time.windows.com', 'ntp.aliyun.com'}
+		}
+	},
+	system = {
+		auto = {
+			reboot = 24
+		},
+		log = {
+			level = 2,
+			style = 1
+		},
+		admin = {'13900000001', '13900000002'}
+	},
+	usb = {
+		dpdm = 1,
+		nic  = 0
+	},
+	io = {
+		default = {
+			pull = 0,
+			volt = 3300
+		},
+		custom = {
+			{
+				gpio = 23,
+				pull = 1
+			}
+		},
+		led = {
+			{
+				role = 'network',
+				gpio = 30,
+				pull = 0
+			},
+			{
+				role = 'event',
+				gpio = 27,
+				pull = 0
+			}
+		}
 	}
 }
 
@@ -117,8 +123,6 @@ return {
 	当前支持明文和SSL/TLS方式的连接，尚不支持STARTTLS
 	典型端口，明文：25，SSL/TLS：465
 
-	retries		如转发不成功，最大重试次数
-	ethernet    USB网卡设置，0关，3开(windows)，7开(Linux)
 	ctrl        可控短信制模块的号码，留空代表任意号码，不可被控制可填不存在的号码如000
 	reboot      定时重启模块，单位小时，0则不重启
 
